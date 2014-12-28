@@ -51,13 +51,7 @@
      (forward (input-b gate))))
 
 (defun make-product-gate* (&rest input-gates)
-  (cond ((= (length input-gates) 2)
-	 (make-product-gate (first input-gates)
-			    (second input-gates)))
-	((> (length input-gates) 2)
-	 (make-product-gate (first input-gates)
-			    (apply #'make-product-gate* (rest input-gates))))
-	(t (error "Need more than two input gates."))))
+  (reduce #'make-product-gate input-gates))
 
 
 (defclass sum-gate (di-gate) ()
@@ -75,13 +69,7 @@
      (forward (input-b gate))))
 
 (defun make-sum-gate* (&rest input-gates)
-  (cond ((= (length input-gates) 2)
-	 (make-sum-gate (first input-gates)
-			(second input-gates)))
-	((> (length input-gates) 2)
-	 (make-sum-gate (first input-gates)
-			(apply #'make-sum-gate* (rest input-gates))))
-	(t (error "Need more than two input gates."))))
+  (reduce #'make-sum-gate input-gates))
 
 
 (defclass max-gate (di-gate) ()
@@ -111,12 +99,7 @@
 	value-b)))
 
 (defun make-max-gate* (&rest input-gates)
-  (cond ((= (length input-gates) 2)
-	 (make-max-gate (first input-gates) (second input-gates)))
-	((> (length input-gates) 2)
-	 (make-max-gate (first input-gates)
-			(apply #'make-max-gate* (rest input-gates))))
-	(t (error "Need more than two input gates."))))
+  (reduce #'make-max-gate input-gates))
 
 
 (defclass uni-gate ()
