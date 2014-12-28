@@ -125,15 +125,14 @@
 
 (defparameter *net-3*
   (make-sigmoid-gate
-   (make-sum-gate
+   (make-sum-gate*
     (make-product-gate
      (make-constant-gate 1)
      (make-constant-gate -1))
-    (make-sum-gate
-     (make-product-gate
-      (make-constant-gate 2)
-      (make-constant-gate 3))
-     (make-constant-gate -3)))))
+    (make-product-gate
+     (make-constant-gate 2)
+     (make-constant-gate 3))
+    (make-constant-gate -3))))
 
 (defparameter *net-4*
   (make-product-gate*
