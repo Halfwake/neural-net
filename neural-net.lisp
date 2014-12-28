@@ -84,6 +84,41 @@
 	(t (error "Need more than two input gates."))))
 
 
+(defclass max-gate (di-gate) ()
+  (:documentation "A di-gate that outputs the max of its two inputs."))
+
+(defun make-max-gate (a b)
+  (make-instance 'max-gate :a a :b b))
+
+(defmethod backward ((gate max-gate) gradient rate)
+  (let* ((gate-a (input-a gate))
+	 (gate-b (input-b gate))
+	 (value-a (forward gate-b))
+	 (value-b (forward gate-a)))
+    ;; TODO What if they're equal? Randomly switch between them?
+    (cond ((> value-a value-b)
+	   (backward gate-a gradient rate)
+	   (backward gate-b 0 rate))
+	  ((<= value-a value-b)
+	   (backward gate-a 0 rate)
+	   (backward gate-b gradient rate)))))
+
+(defmethod forward ((gate max-gate))
+  (let ((value-a (forward (input-a gate)))
+	(value-b (forward (input-b gate))))
+    (if (> value-a value-b)
+	value-a
+	value-b)))
+
+(defun make-max-gate* (&rest input-gates)
+  (cond ((= (length input-gates) 2)
+	 (make-max-gate (first input-gates) (second input-gates)))
+	((> (length input-gates) 2)
+	 (make-max-gate (first input-gates)
+			(apply #'make-max-gate* (rest input-gates))))
+	(t (error "Need more than two input gates."))))
+
+
 (defclass uni-gate ()
   ((input-v :initarg :input-v
 	    :reader input-v))
@@ -145,4 +180,9 @@
    (make-constant-gate 1)
    (make-constant-gate 3)
    (make-constant-gate 5)))
+
+(defparameter *net-6*
+  (make-max-gate
+   (make-constant-gate 1)
+   (make-constant-gate 2)))
 
