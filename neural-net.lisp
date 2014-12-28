@@ -66,6 +66,32 @@
      (forward (input-b gate))))
 
 
+(defclass uni-gate ()
+  ((input-v :initarg :input-v
+	    :reader input-v))
+  (:documentation "Represents a neural net with one input."))
+
+
+(defclass sigmoid-gate (uni-gate) ()
+  (:documentation "A uni-gate that outputs the sigmoid of its one input."))
+
+(defun make-sigmoid-gate (input-v)
+  (make-instance 'sigmoid-gate :input-v input-v))
+
+(defun sigmoid (x)
+  (/ 1
+     (1+ (expt (exp 1)
+	       (- x)))))
+
+(defmethod forward ((gate sigmoid-gate))
+  (sigmoid (forward (input-v gate))))
+
+(defmethod backward ((gate sigmoid-gate) gradient rate)
+  (let* ((value-v (sigmoid (forward (input-v gate))))
+	 (local-gradient (* value-v (- 1 value-v))))
+    (backward (input-v gate) (* local-gradient gradient) rate)))
+
+
 (defparameter *net-1*
   (make-product-gate
    (make-product-gate (make-constant-gate -2)
@@ -78,3 +104,16 @@
    (make-sum-gate (make-constant-gate -2)
 		  (make-constant-gate 5))
    (make-constant-gate -4)))
+
+(defparameter *net-3*
+  (make-sigmoid-gate
+   (make-sum-gate
+    (make-product-gate
+     (make-constant-gate 1)
+     (make-constant-gate -1))
+    (make-sum-gate
+     (make-product-gate
+      (make-constant-gate 2)
+      (make-constant-gate 3))
+     (make-constant-gate -3)))))
+
