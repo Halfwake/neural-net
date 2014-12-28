@@ -50,6 +50,15 @@
   (* (forward (input-a gate))
      (forward (input-b gate))))
 
+(defun make-product-gate* (&rest input-gates)
+  (cond ((= (length input-gates) 2)
+	 (make-product-gate (first input-gates)
+			    (second input-gates)))
+	((> (length input-gates) 2)
+	 (make-product-gate (first input-gates)
+			    (apply #'make-product-gate* (rest input-gates))))
+	(t (error "Need more than two input gates."))))
+
 
 (defclass sum-gate (di-gate) ()
   (:documentation "A di-gate that outputs the sum of its two inputs."))
@@ -64,6 +73,15 @@
 (defmethod forward ((gate sum-gate))
   (+ (forward (input-a gate))
      (forward (input-b gate))))
+
+(defun make-sum-gate* (&rest input-gates)
+  (cond ((= (length input-gates) 2)
+	 (make-sum-gate (first input-gates)
+			(second input-gates)))
+	((> (length input-gates) 2)
+	 (make-sum-gate (first input-gates)
+			(apply #'make-sum-gate* (rest input-gates))))
+	(t (error "Need more than two input gates."))))
 
 
 (defclass uni-gate ()
@@ -116,4 +134,16 @@
       (make-constant-gate 2)
       (make-constant-gate 3))
      (make-constant-gate -3)))))
+
+(defparameter *net-4*
+  (make-product-gate*
+   (make-constant-gate 2)
+   (make-constant-gate 3)
+   (make-constant-gate 3)))
+
+(defparameter *net-5*
+  (make-sum-gate*
+   (make-constant-gate 1)
+   (make-constant-gate 3)
+   (make-constant-gate 5)))
 
