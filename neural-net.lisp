@@ -19,12 +19,12 @@
 
 
 (defclass value-gate ()
-  ((variable-value :initarg :value
-		   :accessor variable-value))
+  ((value :initarg :value
+	  :accessor gate-value))
   (:documentation "A gate that uses a value for input."))
 
 (defmethod forward ((gate value-gate))
-  (variable-value gate))
+  (gate-value gate))
 
 (defclass variable-gate (value-gate) ()
   (:documentation "A variable value input gate."))
@@ -33,7 +33,7 @@
   (make-instance 'variable-gate :value value))
 
 (defmethod backward ((gate variable-gate) gradient rate)
-  (incf (variable-value gate) (* gradient rate))
+  (incf (gate-value gate) (* gradient rate))
   t)
 
 
@@ -182,6 +182,82 @@
    (make-variable-gate 1)
    (make-variable-gate 2)))
 
-;(defun training-protocol (x y)
- ; (make-sum-gate*
+(defparameter *data-points-1*
+  '(((1.2 0.7) 1)
+    ((-0.3 0.5) -1)
+    ((-3 -1) 1)
+    ((0.1 1.0) -1)
+    ((3 1.1) -1)
+    ((2.1 -3) 1)))
 
+(defun flatten (x)
+  (labels ((rec (x acc)
+	     (cond ((null x) acc)
+		   ((atom x) (cons x acc))
+		   (t (rec (car x) (rec (cdr x) acc))))))
+    (rec x nil)))
+
+(defun tree-map (func tree)
+  (cond ((null tree) tree)
+	((atom tree) (funcall func tree))
+	(t (mapcar (lambda (tree)
+		     (funcall #'tree-map func tree))
+		   tree))))
+			      
+
+(make-net-with-holes
+ (make-sum-gate*
+  _
+  _
+  (make-constant-gate 4)))
+
+(let* ((gate-1 (make-variable-gate nil))
+       (gate-2 (make-variable-gate nil))
+       (net (make-sum-gate*
+	     gate-1
+	     gate-2
+	     (make-constant-gate 4))))
+  (values (lambda (a b)
+	    (setf (gate-value gate-1) a)
+	    (setf (gate-value gate-2) b))
+	  net))
+
+(defmacro make-net-with-holes (net-expr)
+  (let* ((hole-syms)
+	 (new-net-expr (tree-map
+			(lambda (node)
+			  (if (eq '_ node)
+			      (let ((sym (gensym "net-hole")))
+				(push sym hole-syms)
+				sym)
+			      node))
+			net-expr))
+	 (arg-syms (loop for _ in hole-syms collect (gensym "arg")))
+	 (net-sym (gensym "net")))
+    `(let ,(loop for hole-sym in hole-syms
+	      collect `(,hole-sym (make-constant-gate nil)))
+       (let ((,net-sym ,new-net-expr))
+	 (values (lambda ,arg-syms
+		   ,(loop for hole-sym in hole-syms
+		       for arg-sym in arg-syms
+		       collect `(setf (gate-value ,hole-sym) ,arg-sym))
+		   ,net-sym)
+		 ,net-sym)))))
+		       
+		    
+
+(defun train-net (data-points rate)
+  (let* ((x-gate (make-constant-gate nil))
+	 (y-gate (make-constant-gate nil))
+	 (net (make-sum-gate*
+	       (make-product-gate (make-variable-gate 1)
+				  x-gate)
+	       (make-product-gate (make-variable-gate -2)
+				  y-gate)
+	       (make-variable-gate -1))))
+    (loop for (data-vector label) in data-points
+          do (setf (gate-value x-gate) (first data-vector))
+	     (setf (gate-value y-gate) (second data-vector))
+	     (let ((forward-signum (signum (forward net))))
+	       (if (> forward-signum label)
+		   (backward rate 
