@@ -18,21 +18,34 @@
   (:documentation "Return the output of a gate."))
 
 
-(defclass constant-gate ()
-  ((constant-value :initarg :value
-		   :accessor constant-value))
-  (:documentation "A constant input gate."))
+(defclass value-gate ()
+  ((variable-value :initarg :value
+		   :accessor variable-value))
+  (:documentation "A gate that uses a value for input."))
+
+(defmethod forward ((gate value-gate))
+  (variable-value gate))
+
+(defclass variable-gate (value-gate) ()
+  (:documentation "A variable value input gate."))
+
+(defun make-variable-gate (value)
+  (make-instance 'variable-gate :value value))
+
+(defmethod backward ((gate variable-gate) gradient rate)
+  (incf (variable-value gate) (* gradient rate))
+  t)
+
+
+(defclass constant-gate (value-gate) ()
+  (:documentation "A constant value input gate."))
 
 (defun make-constant-gate (value)
   (make-instance 'constant-gate :value value))
 
 (defmethod backward ((gate constant-gate) gradient rate)
-  (incf (constant-value gate) (* gradient rate))
+  (declare (ignore gate gradient rate))
   t)
-
-(defmethod forward ((gate constant-gate))
-  (constant-value gate))
-
 
 (defclass product-gate (di-gate) ()
   (:documentation "A di-gate that outputs the product of its two inputs."))
@@ -130,42 +143,45 @@
 
 (defparameter *net-1*
   (make-product-gate
-   (make-product-gate (make-constant-gate -2)
-		      (make-constant-gate 3))
-   (make-product-gate (make-constant-gate 2)
-		      (make-constant-gate 1))))
+   (make-product-gate (make-variable-gate -2)
+		      (make-variable-gate 3))
+   (make-product-gate (make-variable-gate 2)
+		      (make-variable-gate 1))))
 
 (defparameter *net-2*
   (make-product-gate
-   (make-sum-gate (make-constant-gate -2)
-		  (make-constant-gate 5))
-   (make-constant-gate -4)))
+   (make-sum-gate (make-variable-gate -2)
+		  (make-variable-gate 5))
+   (make-variable-gate -4)))
 
 (defparameter *net-3*
   (make-sigmoid-gate
    (make-sum-gate*
     (make-product-gate
-     (make-constant-gate 1)
-     (make-constant-gate -1))
+     (make-variable-gate 1)
+     (make-variable-gate -1))
     (make-product-gate
-     (make-constant-gate 2)
-     (make-constant-gate 3))
-    (make-constant-gate -3))))
+     (make-variable-gate 2)
+     (make-variable-gate 3))
+    (make-variable-gate -3))))
 
 (defparameter *net-4*
   (make-product-gate*
-   (make-constant-gate 2)
-   (make-constant-gate 3)
-   (make-constant-gate 3)))
+   (make-variable-gate 2)
+   (make-variable-gate 3)
+   (make-variable-gate 3)))
 
 (defparameter *net-5*
   (make-sum-gate*
-   (make-constant-gate 1)
-   (make-constant-gate 3)
-   (make-constant-gate 5)))
+   (make-variable-gate 1)
+   (make-variable-gate 3)
+   (make-variable-gate 5)))
 
 (defparameter *net-6*
   (make-max-gate
-   (make-constant-gate 1)
-   (make-constant-gate 2)))
+   (make-variable-gate 1)
+   (make-variable-gate 2)))
+
+;(defun training-protocol (x y)
+ ; (make-sum-gate*
 
