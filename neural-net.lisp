@@ -230,7 +230,7 @@
 (defparameter *initial-values-1* '(1 -2 -1))
 
 (defparameter *data-points-1*
-  '(((1.2 0.7) 1)
+  '(((+1.2 +0.7) +1)
     ((-0.3 -0.5) -1)
     ((+3.0 +0.1) +1)
     ((-0.1 -1.0) -1)
@@ -258,3 +258,4 @@
     (loop for (data-vector label) in data-points
 	  do (initialize-gates constant-gates data-vector)
 	     (format t "Label: ~a~t Attempt: ~a~%" label (forward net)))))
+
