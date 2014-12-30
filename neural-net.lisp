@@ -182,20 +182,6 @@
    (make-variable-gate 1)
    (make-variable-gate 2)))
 
-(defparameter *data-points-1*
-  '(((1.2 0.7) 1)
-    ((-0.3 0.5) -1)
-    ((-3 -1) 1)
-    ((0.1 1.0) -1)
-    ((3 1.1) -1)
-    ((2.1 -3) 1)))
-
-(defun flatten (x)
-  (labels ((rec (x acc)
-	     (cond ((null x) acc)
-		   ((atom x) (cons x acc))
-		   (t (rec (car x) (rec (cdr x) acc))))))
-    (rec x nil)))
 
 (defun tree-map (func tree)
   (cond ((null tree) tree)
@@ -205,59 +191,68 @@
 		   tree))))
 			      
 
-(make-net-with-holes
- (make-sum-gate*
-  _
-  _
-  (make-constant-gate 4)))
+(defmacro net-with-holes (net)
+  (let* ((constant-hole-syms)
+	 (variable-hole-syms)
+	 (filled-net (tree-map (lambda (node)
+				 (cond ((eq node 'constant-hole)
+					(let ((sym (gensym "constant-hole")))
+					  (push sym constant-hole-syms)
+					  sym))
+				       ((eq node 'variable-hole)
+					(let ((sym (gensym "variable-hole")))
+					  (push sym variable-hole-syms)
+					  sym))
+				       (t node)))
+			       net))
+	 (filled-net-sym (gensym "filled-net")))
+    `(let ,(loop for sym in constant-hole-syms
+	         collect `(,sym (make-constant-gate nil)))
+       (let ,(loop for sym in variable-hole-syms
+		   collect `(,sym (make-variable-gate nil)))
+	 (let ((,filled-net-sym ,filled-net))
+	   (values ,filled-net-sym
+		   (list ,@constant-hole-syms)
+		   (list ,@variable-hole-syms)))))))
 
-(let* ((gate-1 (make-variable-gate nil))
-       (gate-2 (make-variable-gate nil))
-       (net (make-sum-gate*
-	     gate-1
-	     gate-2
-	     (make-constant-gate 4))))
-  (values (lambda (a b)
-	    (setf (gate-value gate-1) a)
-	    (setf (gate-value gate-2) b))
-	  net))
+(defun initialize-gates (gates init-values)
+  (loop for gate in gates
+        for init-value in init-values
+        do (setf (gate-value gate) init-value)))
 
-(defmacro make-net-with-holes (net-expr)
-  (let* ((hole-syms)
-	 (new-net-expr (tree-map
-			(lambda (node)
-			  (if (eq '_ node)
-			      (let ((sym (gensym "net-hole")))
-				(push sym hole-syms)
-				sym)
-			      node))
-			net-expr))
-	 (arg-syms (loop for _ in hole-syms collect (gensym "arg")))
-	 (net-sym (gensym "net")))
-    `(let ,(loop for hole-sym in hole-syms
-	      collect `(,hole-sym (make-constant-gate nil)))
-       (let ((,net-sym ,new-net-expr))
-	 (values (lambda ,arg-syms
-		   ,(loop for hole-sym in hole-syms
-		       for arg-sym in arg-syms
-		       collect `(setf (gate-value ,hole-sym) ,arg-sym))
-		   ,net-sym)
-		 ,net-sym)))))
+(defun increment-gates (gates delta-values)
+  (loop for gate in gates
+        for delta-value in delta-values
+        do (incf (gate-value gate) delta-value)))
+
+
+
+(defparameter *initial-values-1* '(1 -2 -1))
+
+(defparameter *data-points-1*
+  '(((1.2 0.7) 1)
+    ((-0.3 0.5) -1)
+    ((-3 -1) 1)
+    ((0.1 1.0) -1)
+    ((3 1.1) -1)
+    ((2.1 -3) 1)))
 		       
-		    
-
-(defun train-net (data-points rate)
-  (let* ((x-gate (make-constant-gate nil))
-	 (y-gate (make-constant-gate nil))
-	 (net (make-sum-gate*
-	       (make-product-gate (make-variable-gate 1)
-				  x-gate)
-	       (make-product-gate (make-variable-gate -2)
-				  y-gate)
-	       (make-variable-gate -1))))
+(defun train-net (data-points initial-values rate)
+  (multiple-value-bind (net constant-gates variable-gates)
+      (net-with-holes
+       (make-sum-gate*
+	(make-product-gate variable-hole constant-hole)
+	(make-product-gate variable-hole constant-hole)
+	variable-hole))
+    (initialize-gates variable-gates initial-values)
+    (dotimes (i 10000)
+      (loop for (data-vector label) in data-points
+	    do (initialize-gates constant-gates data-vector)
+	       (let ((forward (forward net)))
+		 (cond ((< forward label)
+			(backward net 1 rate))
+		       ((> forward label)
+			(backward net -1 rate))))))
     (loop for (data-vector label) in data-points
-          do (setf (gate-value x-gate) (first data-vector))
-	     (setf (gate-value y-gate) (second data-vector))
-	     (let ((forward-signum (signum (forward net))))
-	       (if (> forward-signum label)
-		   (backward rate 
+	  do (initialize-gates constant-gates data-vector)
+	     (format t "Label: ~a~t Attempt: ~a~%" label (forward net)))))
