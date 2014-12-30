@@ -220,10 +220,10 @@
         for init-value in init-values
         do (setf (gate-value gate) init-value)))
 
-(defun increment-gates (gates delta-values)
+(defun increment-gates (gates delta-values &optional (rate 1))
   (loop for gate in gates
         for delta-value in delta-values
-        do (incf (gate-value gate) delta-value)))
+        do (incf (gate-value gate) (* delta-value rate))))
 
 
 
@@ -231,11 +231,11 @@
 
 (defparameter *data-points-1*
   '(((1.2 0.7) 1)
-    ((-0.3 0.5) -1)
-    ((-3 -1) 1)
-    ((0.1 1.0) -1)
-    ((3 1.1) -1)
-    ((2.1 -3) 1)))
+    ((-0.3 -0.5) -1)
+    ((+3.0 +0.1) +1)
+    ((-0.1 -1.0) -1)
+    ((-1.0 +1.1) -1)
+    ((+2.1 -3.0) +1)))
 		       
 (defun train-net (data-points initial-values rate)
   (multiple-value-bind (net constant-gates variable-gates)
@@ -245,14 +245,16 @@
 	(make-product-gate variable-hole constant-hole)
 	variable-hole))
     (initialize-gates variable-gates initial-values)
-    (dotimes (i 10000)
+    (dotimes (i 100)
       (loop for (data-vector label) in data-points
 	    do (initialize-gates constant-gates data-vector)
 	       (let ((forward (forward net)))
-		 (cond ((< forward label)
+		 (cond ((and (< forward 1) (= label 1))
 			(backward net 1 rate))
-		       ((> forward label)
-			(backward net -1 rate))))))
+		       ((and (> forward -1) (= label -1))
+			(backward net -1 rate)))
+		 ;; (increment-gates variable-gates '(-1 2 0) rate)
+		 )))
     (loop for (data-vector label) in data-points
 	  do (initialize-gates constant-gates data-vector)
 	     (format t "Label: ~a~t Attempt: ~a~%" label (forward net)))))
