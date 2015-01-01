@@ -26,14 +26,17 @@
 (defmethod forward ((gate value-gate))
   (gate-value gate))
 
-(defclass variable-gate (value-gate) ()
+(defclass variable-gate (value-gate)
+  ((regularization-amount :initarg :regularization-value
+			  :reader regularization-value))
   (:documentation "A variable value input gate."))
 
 (defun make-variable-gate (value)
-  (make-instance 'variable-gate :value value))
+  (make-instance 'variable-gate :value value :regularization-value value))
 
 (defmethod backward ((gate variable-gate) gradient rate)
   (incf (gate-value gate) (* gradient rate))
+  (incf (gate-value gate) (* (regularization-value gate) rate -1))
   t)
 
 
@@ -186,9 +189,15 @@
 (defun tree-map (func tree)
   (cond ((null tree) tree)
 	((atom tree) (funcall func tree))
-	(t (mapcar (lambda (tree)
-		     (funcall #'tree-map func tree))
-		   tree))))
+	(t (loop for node in tree
+                 collect (funcall #'tree-map func tree)))))
+
+(defun tree-branch-map (func tree)
+  (cond ((null tree) tree)
+	((atom tree) (funcall func tree))
+	(t (funcall func
+		    (loop for node in tree
+			  collect (funcall #'tree-branch-map func node))))))
 			      
 
 (defmacro net-with-holes (net)
@@ -215,6 +224,39 @@
 		   (list ,@constant-hole-syms)
 		   (list ,@variable-hole-syms)))))))
 
+(defmacro net-with-holes (net)
+  (let* ((constant-holes)
+	 (variable-holes)
+	 (filled-net (tree-branch-map
+		      (lambda (branch)
+			(if (atom branch)
+			    branch
+			    (let ((gate-type (first branch)))
+			      (cond ((eq gate-type 'make-variable-gate)
+				     (let ((sym (gensym "variable-hole")))
+				       (push (list sym branch) variable-holes)
+				       sym))
+				    ((eq gate-type 'make-constant-gate)
+				     (let ((sym (gensym "constant-hole" )))
+				       (push (list sym branch) constant-holes)
+				       sym))
+				    (t branch)))))
+		      net))
+	 (filled-net-sym (gensym "filled-net")))
+    `(let ,constant-holes
+       (let ,variable-holes
+	 (let ((,filled-net-sym ,filled-net))
+	   (values ,filled-net-sym
+		   (list ,@(mapcar #'first constant-holes))
+		   (list ,@(mapcar #'first variable-holes))))))))
+						     
+
+(net-with-holes
+ (make-sum-gate*
+  (make-variable-gate 10)
+  (make-constant-gate 4)
+  (make-variable-gate 6)))
+
 (defun initialize-gates (gates init-values)
   (loop for gate in gates
         for init-value in init-values
@@ -237,25 +279,23 @@
     ((-1.0 +1.1) -1)
     ((+2.1 -3.0) +1)))
 		       
-(defun train-net (data-points initial-values rate)
+(defun train-net (data-points rate)
   (multiple-value-bind (net constant-gates variable-gates)
       (net-with-holes
        (make-sum-gate*
-	(make-product-gate variable-hole constant-hole)
-	(make-product-gate variable-hole constant-hole)
-	variable-hole))
-    (initialize-gates variable-gates initial-values)
-    (dotimes (i 100)
+	(make-product-gate (make-variable-gate 1) (make-constant-gate nil))
+	(make-product-gate (make-variable-gate -2) (make-constant-gate nil))
+	(make-variable-gate -1)))
+    (declare (ignore variable-gates))
+    (dotimes (i 400)
       (loop for (data-vector label) in data-points
-	    do (initialize-gates constant-gates data-vector)
-	       (let ((forward (forward net)))
-		 (cond ((and (< forward 1) (= label 1))
-			(backward net 1 rate))
-		       ((and (> forward -1) (= label -1))
-			(backward net -1 rate)))
-		 ;; (increment-gates variable-gates '(-1 2 0) rate)
-		 )))
+	 do (initialize-gates constant-gates data-vector)
+	   (let ((forward (forward net)))
+	     (cond ((and (< forward 1) (= label 1))
+		    (backward net 1 rate))
+		   ((and (> forward -1) (= label -1))
+		    (backward net -1 rate))))))
     (loop for (data-vector label) in data-points
-	  do (initialize-gates constant-gates data-vector)
-	     (format t "Label: ~a~t Attempt: ~a~%" label (forward net)))))
+       do (initialize-gates constant-gates data-vector)
+	 (format t "Label: ~a~t Attempt: ~a~%" label (forward net)))))
 
