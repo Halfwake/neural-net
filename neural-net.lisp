@@ -186,43 +186,12 @@
    (make-variable-gate 2)))
 
 
-(defun tree-map (func tree)
-  (cond ((null tree) tree)
-	((atom tree) (funcall func tree))
-	(t (loop for node in tree
-                 collect (funcall #'tree-map func tree)))))
-
 (defun tree-branch-map (func tree)
   (cond ((null tree) tree)
 	((atom tree) (funcall func tree))
 	(t (funcall func
 		    (loop for node in tree
 			  collect (funcall #'tree-branch-map func node))))))
-			      
-
-(defmacro net-with-holes (net)
-  (let* ((constant-hole-syms)
-	 (variable-hole-syms)
-	 (filled-net (tree-map (lambda (node)
-				 (cond ((eq node 'constant-hole)
-					(let ((sym (gensym "constant-hole")))
-					  (push sym constant-hole-syms)
-					  sym))
-				       ((eq node 'variable-hole)
-					(let ((sym (gensym "variable-hole")))
-					  (push sym variable-hole-syms)
-					  sym))
-				       (t node)))
-			       net))
-	 (filled-net-sym (gensym "filled-net")))
-    `(let ,(loop for sym in constant-hole-syms
-	         collect `(,sym (make-constant-gate nil)))
-       (let ,(loop for sym in variable-hole-syms
-		   collect `(,sym (make-variable-gate nil)))
-	 (let ((,filled-net-sym ,filled-net))
-	   (values ,filled-net-sym
-		   (list ,@constant-hole-syms)
-		   (list ,@variable-hole-syms)))))))
 
 (defmacro net-with-holes (net)
   (let* ((constant-holes)
@@ -251,12 +220,6 @@
 		   (list ,@(mapcar #'first variable-holes))))))))
 						     
 
-(net-with-holes
- (make-sum-gate*
-  (make-variable-gate 10)
-  (make-constant-gate 4)
-  (make-variable-gate 6)))
-
 (defun initialize-gates (gates init-values)
   (loop for gate in gates
         for init-value in init-values
@@ -268,16 +231,8 @@
         do (incf (gate-value gate) (* delta-value rate))))
 
 
-
 (defparameter *initial-values-1* '(1 -2 -1))
 
-(defparameter *data-points-1*
-  '(((+1.2 +0.7) +1)
-    ((-0.3 -0.5) -1)
-    ((+3.0 +0.1) +1)
-    ((-0.1 -1.0) -1)
-    ((-1.0 +1.1) -1)
-    ((+2.1 -3.0) +1)))
 		       
 (defun train-net (data-points rate)
   (multiple-value-bind (net constant-gates variable-gates)
@@ -298,4 +253,3 @@
     (loop for (data-vector label) in data-points
        do (initialize-gates constant-gates data-vector)
 	 (format t "Label: ~a~t Attempt: ~a~%" label (forward net)))))
-
