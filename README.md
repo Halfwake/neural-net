@@ -37,9 +37,9 @@ Still working on a good way to build trees and retain references to constant and
 ;; and a list of variable gates.
 (net-with-holes
   (make-sum-gate*
-  (make-product-gate (make-variable-gate 1) (make-constant-gate nil))
-  (make-product-gate (make-variable-gate -2) (make-constant-gate nil))
-  (make-variable-gate -1)))
+    (make-product-gate (make-variable-gate 1) (make-constant-gate nil))
+    (make-product-gate (make-variable-gate -2) (make-constant-gate nil))
+    (make-variable-gate -1)))
 ```
 I don't like it that much.
 
