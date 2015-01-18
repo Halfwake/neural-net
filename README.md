@@ -1,6 +1,6 @@
 Neural net library I made while working on https://karpathy.github.io/neuralnets/
 
-Make trees.
+Make networks.
 ```lisp
 (defparameter *net-1*
   (make-product-gate
@@ -36,10 +36,10 @@ Still working on a good way to build trees and retain references to constant and
 ;; Returns three values; The entire neural net, a list of constant gates
 ;; and a list of variable gates.
 (net-with-holes
-       (make-sum-gate*
-       (make-product-gate (make-variable-gate 1) (make-constant-gate nil))
-       (make-product-gate (make-variable-gate -2) (make-constant-gate nil))
-       (make-variable-gate -1)))
+  (make-sum-gate*
+  (make-product-gate (make-variable-gate 1) (make-constant-gate nil))
+  (make-product-gate (make-variable-gate -2) (make-constant-gate nil))
+  (make-variable-gate -1)))
 ```
 I don't like it that much.
 
